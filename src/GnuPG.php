@@ -2,7 +2,6 @@
 
 namespace PlacetoPay\GnuPG;
 
-
 use PlacetoPay\GnuPG\Exception\InvalidArgumentException;
 
 /**
@@ -85,8 +84,8 @@ class GnuPG
     {
         $gpgExecutable = isset($settings['gpgExecutable']) ? $settings['gpgExecutable'] : null;
         $ringPath = isset($settings['ringPath']) ? $settings['ringPath'] : null;
-
         $ignoreTimeConflict = isset($settings['ignoreTimeConflict']) ? $settings['ignoreTimeConflict'] : null;
+
         if ($ignoreTimeConflict) {
             $this->additional[] = '--ignore-time-conflict';
         }
@@ -103,17 +102,21 @@ class GnuPG
 
         // if is empty the home directory then assume based in the OS
         if (empty($ringPath)) {
+            $ringPath = '~/.gnupg';
+
             if (strstr(PHP_OS, 'WIN')) {
                 $ringPath = 'C:\gnupg';
-            } else {
-                $ringPath = '~/.gnupg';
             }
         }
 
-        if (!is_executable($gpgExecutable))
-            throw new InvalidArgumentException('The GnuPG executable file does not exist or can not be executed.', 1010);
-        if (!is_dir($ringPath))
+        if (!is_executable($gpgExecutable)) {
+            throw new InvalidArgumentException('The GnuPG executable file does not exist or can not be executed.',
+                1010);
+        }
+
+        if (!is_dir($ringPath)) {
             throw new InvalidArgumentException('The ring path is not a directory or does not exists.', 1020);
+        }
 
         $this->gpgExecutable = $gpgExecutable;
         $this->ringPath = $ringPath;
@@ -153,14 +156,16 @@ class GnuPG
         $command = escapeshellcmd($this->gpgExecutable) .
             ' --homedir ' . escapeshellarg($this->ringPath);
 
-        if (!empty($this->additional))
+        if (!empty($this->additional)) {
             $command .= ' ' . implode(' ', $this->additional);
+        }
 
         foreach ($arguments as $key => $value) {
-            if (!isset($value))
+            if (!isset($value)) {
                 $command .= ' ' . $key;
-            else
+            } else {
                 $command .= ' ' . $key . ' ' . escapeshellarg($value);
+            }
         }
 
         return $command;
@@ -187,13 +192,17 @@ class GnuPG
         $process = proc_open($command, $descriptorSpec, $pipes);
         if (is_resource($process)) {
             // writes the input
-            if (!empty($input)) fwrite($pipes[0], $input);
+            if (!empty($input)) {
+                fwrite($pipes[0], $input);
+            }
             fclose($pipes[0]);
 
             // reads the output
             while (!feof($pipes[1])) {
                 $data = fread($pipes[1], 1024);
-                if (strlen($data) == 0) break;
+                if (strlen($data) == 0) {
+                    break;
+                }
                 $output .= $data;
             }
             fclose($pipes[1]);
@@ -202,7 +211,9 @@ class GnuPG
             $result = '';
             while (!feof($pipes[2])) {
                 $data = fread($pipes[2], 1024);
-                if (strlen($data) == 0) break;
+                if (strlen($data) == 0) {
+                    break;
+                }
                 $result .= $data;
             }
             fclose($pipes[2]);
@@ -235,8 +246,9 @@ class GnuPG
     {
         // validate the KeyKind
         $keyKind = strtolower(substr($keyKind, 0, 3));
-        if (($keyKind != 'pub') && ($keyKind != 'sec'))
+        if (($keyKind != 'pub') && ($keyKind != 'sec')) {
             throw new InvalidArgumentException('The Key kind must be public or secret.', 1050);
+        }
 
         // initialize the output
         $contents = '';
@@ -260,7 +272,9 @@ class GnuPG
             foreach ($contents as $data) {
                 // read the fields to get the : separated, the sub record is dismiss
                 $fields = explode(':', $data);
-                if (count($fields) <= 3) continue;
+                if (count($fields) <= 3) {
+                    continue;
+                }
 
                 // verify the that the record is valid
                 if (($fields[0] == 'pub') || ($fields[0] == 'sec')) {
@@ -282,19 +296,22 @@ class GnuPG
                 } elseif ($keyPos != -1) {
                     switch ($fields[0]) {
                         case 'uid':
-                            if (empty($returned_keys[$keyPos]['UserID']))
+                            if (empty($returned_keys[$keyPos]['UserID'])) {
                                 $returned_keys[$keyPos]['UserID'] = $fields[9];
+                            }
                             break;
                         case 'fpr':
-                            if (empty($returned_keys[$keyPos]['UserID']))
+                            if (empty($returned_keys[$keyPos]['UserID'])) {
                                 $returned_keys[$keyPos]['Fingerprint'] = $fields[9];
+                            }
                             break;
                     }
                 }
             }
             return $returned_keys;
-        } else
+        } else {
             return false;
+        }
     }
 
     /**
@@ -317,10 +334,11 @@ class GnuPG
             '--armor' => null,
             '--export' => $keyId
         ]),
-            false, $contents))
+            false, $contents)) {
             return (empty($contents) ? false : $contents);
-        else
+        } else {
             return false;
+        }
     }
 
     /**
@@ -336,8 +354,9 @@ class GnuPG
     public function import($keyBlock)
     {
         // Verify for the Key block contents
-        if (empty($keyBlock))
+        if (empty($keyBlock)) {
             throw new InvalidArgumentException('No valid key block was specified.', 1060);
+        }
 
         // initialize the output
         $contents = '';
@@ -355,14 +374,17 @@ class GnuPG
             $contents = explode("\n", $contents);
             foreach ($contents as $data) {
                 $matches = false;
-                if (preg_match('/\[GNUPG:\]\sIMPORTED\s(\w+)\s(.+)/', $data, $matches))
+                if (preg_match('/\[GNUPG:\]\sIMPORTED\s(\w+)\s(.+)/', $data, $matches)) {
                     array_push($imported_keys, array(
                         'KeyID' => $matches[1],
-                        'UserID' => $matches[2]));
+                        'UserID' => $matches[2]
+                    ));
+                }
             }
             return $imported_keys;
-        } else
+        } else {
             return false;
+        }
     }
 
     /**
@@ -379,26 +401,40 @@ class GnuPG
      * @param  int $subKeyLength Length of the subkey in bits, default is 1024.
      * @return boolean|array  false on error, the fingerprint of the created key pair in success
      */
-    public function genKey($realName, $comment, $email, $passPhrase = '', $expireDate = 0, $keyType = 'DSA', $keyLength = 1024, $subKeyType = 'ELG-E', $subKeyLength = 1024)
-    {
+    public function genKey(
+        $realName,
+        $comment,
+        $email,
+        $passPhrase = '',
+        $expireDate = 0,
+        $keyType = 'DSA',
+        $keyLength = 1024,
+        $subKeyType = 'ELG-E',
+        $subKeyLength = 1024
+    ) {
         // validates the keytype
-        if (($keyType != 'DSA') && ($keyType != 'RSA'))
+        if (($keyType != 'DSA') && ($keyType != 'RSA')) {
             throw new InvalidArgumentException('Invalid Key-Type, the allowed are DSA and RSA.', 1070);
+        }
 
         // validates the subkey
-        if ((!empty($subKeyType)) && ($subKeyType != 'ELG-E'))
+        if ((!empty($subKeyType)) && ($subKeyType != 'ELG-E')) {
             throw new InvalidArgumentException('Invalid Subkey-Type, the allowed is ELG-E.', 1071);
+        }
 
         // validate the expiration date
-        if (!preg_match('/^(([0-9]+[dwmy]?)|([0-9]{4}-[0-9]{2}-[0-9]{2}))$/', $expireDate))
-            throw new InvalidArgumentException('Invalid Expire Date, the allowed values are <iso-date>|(<number>[d|w|m|y]).', 1072);
+        if (!preg_match('/^(([0-9]+[dwmy]?)|([0-9]{4}-[0-9]{2}-[0-9]{2}))$/', $expireDate)) {
+            throw new InvalidArgumentException('Invalid Expire Date, the allowed values are <iso-date>|(<number>[d|w|m|y]).',
+                1072);
+        }
 
         // generates the batch configuration script
         $batch_script = "Key-Type: $keyType\n" .
             "Key-Length: $keyLength\n";
-        if (($keyType == 'DSA') && ($subKeyType == 'ELG-E'))
+        if (($keyType == 'DSA') && ($subKeyType == 'ELG-E')) {
             $batch_script .= "Subkey-Type: $subKeyType\n" .
                 "Subkey-Length: $subKeyLength\n";
+        }
         $batch_script .= "Name-Real: $realName\n" .
             "Name-Comment: $comment\n" .
             "Name-Email: $email\n" .
@@ -418,12 +454,14 @@ class GnuPG
         ]),
             $batch_script, $contents)) {
             $matches = false;
-            if (preg_match('/\[GNUPG:\]\sKEY_CREATED\s(\w+)\s(\w+)/', $contents, $matches))
+            if (preg_match('/\[GNUPG:\]\sKEY_CREATED\s(\w+)\s(\w+)/', $contents, $matches)) {
                 return $matches[2];
-            else
+            } else {
                 return true;
-        } else
+            }
+        } else {
             return false;
+        }
     }
 
     /**
@@ -438,10 +476,13 @@ class GnuPG
      */
     public function encrypt($keyId, $passPhrase, $recipientKeyId, $text, $sign = true)
     {
-        if (empty($keyId))
+        if (empty($keyId)) {
             throw new InvalidArgumentException('You must specify the KeyID used to encrypt.', 1080);
-        if (empty($recipientKeyId))
-            throw new InvalidArgumentException('You must specify the RecipientKeyID who will receive the message.', 1081);
+        }
+        if (empty($recipientKeyId)) {
+            throw new InvalidArgumentException('You must specify the RecipientKeyID who will receive the message.',
+                1081);
+        }
 
         // initialize the output
         $contents = '';
@@ -467,10 +508,11 @@ class GnuPG
             $passPhrase . "\n" . $text, $contents);
 
         // execute the GPG command
-        if ($result)
+        if ($result) {
             return trim($contents);
-        else
+        } else {
             return false;
+        }
     }
 
     /**
@@ -486,12 +528,16 @@ class GnuPG
      */
     public function encryptFile($keyId, $passPhrase, $recipientKeyId, $inputFile, $outputFile, $sign = true)
     {
-        if (empty($keyId))
+        if (empty($keyId)) {
             throw new InvalidArgumentException('You must specify the KeyID used to encrypt.', 1090);
-        if (empty($recipientKeyId))
-            throw new InvalidArgumentException('You must specify the RecipientKeyID who will receive the message.', 1091);
-        if (!is_readable($inputFile))
+        }
+        if (empty($recipientKeyId)) {
+            throw new InvalidArgumentException('You must specify the RecipientKeyID who will receive the message.',
+                1091);
+        }
+        if (!is_readable($inputFile)) {
             throw new InvalidArgumentException('The file to be encrypted must exist.', 1092);
+        }
 
         // initialize the output
         $contents = '';
@@ -515,10 +561,11 @@ class GnuPG
             ], $options);
         }
         if ($this->forkProcess($this->buildGnuPGCommand($options),
-            $passPhrase . "\n", $contents))
+            $passPhrase . "\n", $contents)) {
             return $contents;
-        else
+        } else {
             return false;
+        }
     }
 
     /**
@@ -533,8 +580,9 @@ class GnuPG
      */
     public function decrypt($keyId, $passPhrase, $text)
     {
-        if (empty($keyId))
+        if (empty($keyId)) {
             throw new InvalidArgumentException('You must specify the KeyID used to decrypt.', 1100);
+        }
 
         // the text to decrypt from another platforms can has a bad sequence
         // this line removes the bad data and converts to line returns
@@ -542,7 +590,9 @@ class GnuPG
 
         // we generate an array and add a new line after the PGP header
         $text = explode("\n", $text);
-        if (count($text) > 1) $text[1] .= "\n";
+        if (count($text) > 1) {
+            $text[1] .= "\n";
+        }
         $text = implode("\n", $text);
 
         // initialize the output
@@ -557,10 +607,11 @@ class GnuPG
             '--default-key' => $keyId,
             '--decrypt' => null
         ]),
-            $passPhrase . "\n" . $text, $contents))
+            $passPhrase . "\n" . $text, $contents)) {
             return $contents;
-        else
+        } else {
             return false;
+        }
     }
 
     /**
@@ -576,10 +627,12 @@ class GnuPG
      */
     public function decryptFile($keyId, $passPhrase, $inputFile, $outputFile)
     {
-        if (empty($keyId))
+        if (empty($keyId)) {
             throw new InvalidArgumentException('You must specify the KeyID used to decrypt.', 1110);
-        if (!is_readable($inputFile))
+        }
+        if (!is_readable($inputFile)) {
             throw new InvalidArgumentException('The file to be decrypted must exist.', 1111);
+        }
 
         // initialize the output
         $contents = '';
@@ -594,10 +647,11 @@ class GnuPG
             '--output' => $outputFile,
             '--decrypt' => $inputFile
         ]),
-            $passPhrase . "\n", $contents))
+            $passPhrase . "\n", $contents)) {
             return $contents;
-        else
+        } else {
             return false;
+        }
     }
 
     /**
@@ -616,13 +670,15 @@ class GnuPG
      */
     public function deleteKey($keyId, $keyKind = self::KEY_KIND_PUBLIC)
     {
-        if (empty($keyId))
+        if (empty($keyId)) {
             throw new InvalidArgumentException('You must specify the KeyID to delete.', 1120);
+        }
 
         // validate the KeyKind
         $keyKind = strtolower(substr($keyKind, 0, 3));
-        if (($keyKind != 'pub') && ($keyKind != 'sec'))
+        if (($keyKind != 'pub') && ($keyKind != 'sec')) {
             throw new InvalidArgumentException('The Key kind must be public or secret.', 1121);
+        }
 
         // initialize the output
         $contents = '';
@@ -634,14 +690,15 @@ class GnuPG
             '--status-fd' => '1',
             (($keyKind == 'pub') ? '--delete-key' : '--delete-secret-keys') => $keyId
         ]),
-            false, $contents))
+            false, $contents)) {
             return true;
-        else {
+        } else {
             $matches = array();
-            if (preg_match('/\[GNUPG:\]\DELETE_PROBLEM\s(\w+)/', $contents, $matches))
+            if (preg_match('/\[GNUPG:\]\DELETE_PROBLEM\s(\w+)/', $contents, $matches)) {
                 return $matches[1];
-            else
+            } else {
                 return false;
+            }
         }
     }
 
@@ -660,10 +717,12 @@ class GnuPG
      */
     public function signKey($keyId, $passPhrase, $recipientKeyId, $certificationLevel = self::CERT_LEVEL_NONE)
     {
-        if (empty($keyId))
+        if (empty($keyId)) {
             throw new InvalidArgumentException('You must specify the KeyID used to sign.', 1130);
-        if (empty($recipientKeyId))
+        }
+        if (empty($recipientKeyId)) {
             throw new InvalidArgumentException('You must specify the RecipientKeyID to be signed.', 1131);
+        }
 
         // initialize the output
         $contents = '';
@@ -681,9 +740,10 @@ class GnuPG
             '--default-cert-level' => strval($certificationLevel),
             '--sign-key' => $recipientKeyId
         ]),
-            $passPhrase . "\n", $contents))
+            $passPhrase . "\n", $contents)) {
             return $contents;
-        else
+        } else {
             return false;
+        }
     }
 }
